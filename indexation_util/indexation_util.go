@@ -4,10 +4,12 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -148,4 +150,34 @@ func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.W
 	}
 
 	wg.Done()
+}
+
+func WriteMap(res map[string]int, res_a, res_n string) {
+	keys := make([]string, 0, len(res))
+	for k := range res {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	f, err := os.Create(res_a)
+	if err != nil {
+		log.Fatal("could not create a file")
+	}
+	defer f.Close()
+
+	for _, k := range keys {
+		f.WriteString(fmt.Sprintln(k, res[k]))
+	}
+
+	sort.Slice(keys, func(i, j int) bool { return res[keys[i]] > res[keys[j]] })
+
+	ff, err := os.Create(res_n)
+	if err != nil {
+		log.Fatal("could not create a file")
+	}
+	defer ff.Close()
+
+	for _, k := range keys {
+		ff.WriteString(fmt.Sprintln(k, res[k]))
+	}
 }

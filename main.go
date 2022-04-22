@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/bohdanhlovatskyi/goindex.git/conf_reader"
@@ -30,7 +29,13 @@ func main() {
 	wg.Wait()
 	close(merge_q)
 
-	for elm := range merge_q {
-		fmt.Println(elm)
+	// merge the maps
+	m := make(map[string]int)
+	for lm := range merge_q {
+		for k, v := range lm {
+			m[k] += v
+		}
 	}
+
+	iutil.WriteMap(m, conf.Out_by_a, conf.Out_by_n)
 }
