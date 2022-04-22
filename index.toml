@@ -1,4 +1,4 @@
-indir = "data/"
+indir = "arch/ISOIMAGE/3/1/1"
 out_by_a = "res_a.txt" # bla bla comment
 out_by_n = "res_n.txt"
 indexing_threads = 4
