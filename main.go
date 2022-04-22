@@ -42,18 +42,24 @@ func main() {
 	merge_q <- make(map[string]int)
 
 	elapsed := time.Since(start)
-	fmt.Println("indexers taken: ", elapsed)
+	fmt.Println("indexers end time: ", elapsed)
 
 	wg2.Wait()
 	if len(merge_q) != 2 {
 		panic("mergers did not succed")
 	}
-	fmt.Println("mergers are done")
 	m := <-merge_q
 	_ = <-merge_q // take the poisson pill out
 	close(merge_q)
 
+	elapsed = time.Since(start)
+	fmt.Println("mergers end time: ", elapsed)
+	sstart := time.Now()
+
 	iutil.WriteMap(m, conf.Out_by_a, conf.Out_by_n)
+	elapsed = time.Since(sstart)
+	fmt.Println("write taken: ", elapsed)
+
 	elapsed = time.Since(start)
 	fmt.Println("Time taken: ", elapsed)
 }
