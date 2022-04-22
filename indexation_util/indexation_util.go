@@ -126,11 +126,12 @@ func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.W
 	var data string
 	var err error
 
-	m := make(map[string]int)
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	c := cases.Fold()
 
 	for elm := range data_q {
+		m := make(map[string]int)
+
 		if filepath.Ext(elm.Path) == ".zip" {
 			data, err = processRawSource(elm.Data)
 			if err != nil {
@@ -150,6 +151,45 @@ func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.W
 	}
 
 	wg.Done()
+}
+
+// this one is reeeeally not in the nature of go :(, though
+// I am to stupid to do this in the right way
+func Merger(q chan map[string]int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		f := <-q
+		if len(f) == 0 {
+			q <- f
+			if len(q) <= 2 {
+				break
+			}
+			continue
+		}
+
+		s := <-q
+		if len(s) == 0 {
+			q <- f
+			q <- s
+			if len(q) <= 2 {
+				break
+			}
+			continue
+		}
+
+		if len(f) > len(s) {
+			for k, v := range s {
+				f[k] += v
+			}
+			q <- f
+		} else {
+			for k, v := range f {
+				s[k] += v
+			}
+			q <- s
+		}
+	}
 }
 
 func WriteMap(res map[string]int, res_a, res_n string) {

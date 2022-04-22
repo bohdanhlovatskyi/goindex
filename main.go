@@ -26,32 +26,32 @@ func main() {
 	go iutil.Reader(path_q, data_q)
 
 	wg := &sync.WaitGroup{}
-
-	for i := 0; i < 65; i++ {
+	for i := 0; i < 30; i++ {
 		wg.Add(1)
 		go iutil.Indexer(data_q, merge_q, wg)
 	}
 
+	wg2 := &sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg2.Add(1)
+		go iutil.Merger(merge_q, wg2)
+	}
+
 	wg.Wait()
-	close(merge_q)
+	// drop poisson pill here for the merger set of functions
+	merge_q <- make(map[string]int)
 
 	elapsed := time.Since(start)
 	fmt.Println("indexers taken: ", elapsed)
 
-	// merge the maps
-	mc := make(chan map[string]int)
-	go func() {
-		m := make(map[string]int)
-		for lm := range merge_q {
-			for k, v := range lm {
-				m[k] += v
-			}
-		}
-
-		mc <- m
-	}()
-
-	m := <-mc
+	wg2.Wait()
+	if len(merge_q) != 2 {
+		panic("mergers did not succed")
+	}
+	fmt.Println("mergers are done")
+	m := <-merge_q
+	_ = <-merge_q // take the poisson pill out
+	close(merge_q)
 
 	iutil.WriteMap(m, conf.Out_by_a, conf.Out_by_n)
 	elapsed = time.Since(start)
