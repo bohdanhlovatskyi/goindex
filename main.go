@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"path/filepath"
+	"sync"
 
-	conf_reader "github.com/bohdanhlovatskyi/goindex.git/conf_reader"
+	"github.com/bohdanhlovatskyi/goindex.git/conf_reader"
 	iutil "github.com/bohdanhlovatskyi/goindex.git/indexation_util"
 )
 
@@ -16,23 +15,22 @@ func main() {
 
 	path_q := make(chan string, 100)
 	data_q := make(chan iutil.RawFileSource, 100)
+	merge_q := make(chan map[string]int, 100)
 
 	go iutil.TraverseDirs(conf.Indir, path_q)
 	go iutil.Reader(path_q, data_q)
 
-	for elm := range data_q {
-		var data string
-		var err error
-		rdata, path := elm.Data, elm.Path
-		if filepath.Ext(path) == ".zip" {
-			data, err = iutil.ProcessRawSource(rdata)
-			if err != nil {
-				log.Println("oculd not unzip data:", err)
-			}
-		} else {
-			data = string(rdata)
-		}
+	wg := &sync.WaitGroup{}
 
-		fmt.Println(data)
+	for i := 0; i < conf.Indexing_threads; i++ {
+		wg.Add(1)
+		go iutil.Indexer(data_q, merge_q, wg)
+	}
+
+	wg.Wait()
+	close(merge_q)
+
+	for elm := range merge_q {
+		fmt.Println(elm)
 	}
 }

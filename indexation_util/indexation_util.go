@@ -9,6 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"unicode"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 type RawFileSource struct {
@@ -39,7 +46,6 @@ func TraverseDirs(path string, path_q chan string) {
 		log.Println(err)
 	}
 
-	path_q <- ""
 	close(path_q)
 }
 
@@ -70,14 +76,6 @@ func __read_binary(path string) ([]byte, error) {
 func Reader(path_q chan string, data_q chan RawFileSource) {
 
 	for path := range path_q {
-		// poisson pill, this can be done slsighly less ugly
-		// via some struct with context (method that cab be applied to it)
-		// this will also allow to cancel work at any time
-		if path == "" {
-			data_q <- RawFileSource{[]byte(""), ""}
-			break
-		}
-
 		data, err := __read_binary(path)
 		if err != nil {
 			log.Println("could not read file: ", path, err)
@@ -99,7 +97,7 @@ func readZipFile(zf *zip.File) ([]byte, error) {
 	return ioutil.ReadAll(f)
 }
 
-func ProcessRawSource(raw []byte) (string, error) {
+func processRawSource(raw []byte) (string, error) {
 	b := bytes.NewReader(raw)
 	reader, err := zip.NewReader(b, int64(len(raw)))
 	if err != nil {
@@ -119,4 +117,35 @@ func ProcessRawSource(raw []byte) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.WaitGroup) {
+
+	var data string
+	var err error
+
+	m := make(map[string]int)
+	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+	c := cases.Fold()
+
+	for elm := range data_q {
+		if filepath.Ext(elm.Path) == ".zip" {
+			data, err = processRawSource(elm.Data)
+			if err != nil {
+				log.Println("oculd not unzip data:", err)
+			}
+		} else {
+			data = string(elm.Data)
+		}
+
+		data, _, _ := transform.String(t, data)
+		data = c.String(data)
+		for _, word := range strings.Fields(data) {
+			m[word] += 1
+		}
+
+		merger_q <- m
+	}
+
+	wg.Done()
 }
