@@ -49,7 +49,7 @@ func main() {
 		panic("mergers did not succed")
 	}
 	m := <-merge_q
-	_ = <-merge_q // take the poisson pill out
+	<-merge_q // take the poisson pill out
 	close(merge_q)
 
 	elapsed = time.Since(start)

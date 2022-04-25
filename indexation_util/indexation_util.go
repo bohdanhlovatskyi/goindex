@@ -198,22 +198,19 @@ func WriteMap(res map[string]int, res_a, res_n string) {
 		keys = append(keys, k)
 	}
 
-	// I know that this should not run faster, though it does...
-	go func(keys []string) {
-		sort.Strings(keys)
+	sort.Strings(keys)
 
-		f, err := os.Create(res_a)
-		if err != nil {
-			log.Fatal("could not create a file")
-		}
-		defer f.Close()
+	f, err := os.Create(res_a)
+	if err != nil {
+		log.Fatal("could not create a file")
+	}
+	defer f.Close()
 
-		w := bufio.NewWriter(f)
-		for _, k := range keys {
-			w.Write([]byte(fmt.Sprintln(k, res[k])))
-		}
-		w.Flush()
-	}(keys[:])
+	w := bufio.NewWriter(f)
+	for _, k := range keys {
+		w.Write([]byte(fmt.Sprintln(k, res[k])))
+	}
+	w.Flush()
 
 	sort.Slice(keys, func(i, j int) bool { return res[keys[i]] > res[keys[j]] })
 
@@ -223,7 +220,7 @@ func WriteMap(res map[string]int, res_a, res_n string) {
 	}
 	defer ff.Close()
 
-	w := bufio.NewWriter(ff)
+	w = bufio.NewWriter(ff)
 	for _, k := range keys {
 		w.Write([]byte(fmt.Sprintln(k, res[k])))
 	}
