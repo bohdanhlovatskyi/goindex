@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -128,6 +129,10 @@ func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.W
 
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	c := cases.Fold()
+	reg, err := regexp.Compile(`[\p{P}\p{S}]+`)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for elm := range data_q {
 		m := make(map[string]int)
@@ -142,9 +147,17 @@ func Indexer(data_q chan RawFileSource, merger_q chan map[string]int, wg *sync.W
 		}
 
 		data, _, _ := transform.String(t, data)
+		data = reg.ReplaceAllString(data, " ")
 		data = c.String(data)
-		for _, word := range strings.Fields(data) {
-			m[word] += 1
+		s := bufio.NewScanner(strings.NewReader(data))
+		s.Split(bufio.ScanWords)
+
+		for s.Scan() {
+			m[s.Text()] += 1
+		}
+
+		if s.Err() != nil {
+			log.Println(s.Err())
 		}
 
 		merger_q <- m
